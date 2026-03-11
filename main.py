@@ -20,6 +20,9 @@ CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 GLOVE_R_NAME = "ESP32GloveR"
 
 osc_client = udp_client.SimpleUDPClient(VMC_IP, VMC_PORT)
+finger_state = [0, 0, 0, 0, 0]
+calibration_open = [0, 0, 0, 0, 0]
+calibration_closed = [1024, 1024, 1024, 1024, 1024]
 
 def handle_close(event):
     # Create the task in the loop
@@ -55,6 +58,8 @@ client = None
 MainWindow.setWindowTitle("{} {}".format(
   WINDOW_TITLE, VERSION))
 MainWindow.closeEvent = handle_close
+MainWindow.setFixedSize(640, 480)
+MainWindow.statusBar().setSizeGripEnabled(False)
 MainWindow.show()
 
 async def run_ble_client(address, char_uuid, callback):
@@ -66,10 +71,9 @@ async def run_ble_client(address, char_uuid, callback):
 
 async def start_connection():
   global status_label, client, osc_client
-  #osc_client.send_message("/VMC/Ext/Bone/Pos", ["Head", 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.9])
   status_label.setText("Scanning for VR Glove...")
   
-  # We look for a device that is specifically advertising your Service UUID
+  # Look for a device that is specifically advertising your Service UUID
   device = await BleakScanner.find_device_by_filter(
     lambda d, ad: SERVICE_UUID.lower() in [s.lower() for s in ad.service_uuids]
   )
@@ -101,20 +105,31 @@ def map_and_send_to_vmc(raw_curls):
   finger_names = ["Thumb", "Index", "Middle", "Ring", "Little"]
   
   for i, raw_val in enumerate(raw_curls):
-    # 1. Normalize to 0.0 - 1.0
+    # Apply calibration ((raw - open)/(closed - open))
+
+    #if (calibration_closed[i] - calibration_open[i] != 0):
+    #  raw_val = (raw_val - calibration_open[i]) / (calibration_closed[i] - calibration_open[i])
+
+    # Normalize to 0.0 - 1.0
     # If 1024 is "open" and 0 is "fist", use: 1.0 - (raw_val / 1024.0)
-    norm = max(0.0, min(1.0, raw_val / 1024.0))
+    #norm = max(0.0, min(1.0, raw_val / 1024.0))
     
-    # 2. Smoothing (using the global alpha and smoothed_values)
+    c_min = calibration_open[i]
+    c_max = calibration_closed[i]
+
+    # 1. Normalize between 0.0 and 1.0 using the calibrated range
+    # Use a small epsilon to avoid division by zero
+    denom = (c_max - c_min) if (c_max - c_min) != 0 else 1
+    norm = (raw_val - c_min) / denom
+    norm = max(0.0, min(1.0, norm)) # Clamp to 0-1 range
+
+    # Smoothing (using the global alpha and smoothed_values)
     global smoothed_values
     smoothed_values[i] = (norm * alpha) + (smoothed_values[i] * (1 - alpha))
-    
-    # 3. Convert to Angle (in Radians)
-    # 1.6 radians is about 90 degrees.
 
-    # 4. Calculate Quaternion (Rotation on X-axis)
+    # Calculate Quaternion (Rotation on X-axis)
     # [qx, qy, qz, qw]
-    if i == 0:  # THUMB SPECIAL CASE
+    if i == 0:  # Thumb rotates differently
       angle = smoothed_values[i] * 2.0
       s = math.sin(angle / 2)
       c = math.cos(angle / 2)
@@ -128,8 +143,7 @@ def map_and_send_to_vmc(raw_curls):
       # Fingers (Confirmed working Z-axis)
       qx, qy, qz, qw = 0.0, 0.0, s, c
 
-    # 5. Send to VNYan via OSC
-    # VMC Protocol: /vmt/rt/bone, (str)Name, (float)px, py, pz, rx, ry, rz, rw
+    # VMC Protocol: /VMC/Ext/Bone/Pos, (str)Name, (float)px, py, pz, rx, ry, rz, rw
     # We assume Left Hand here.
     for segment in ["Proximal", "Intermediate", "Distal"]:
       bone_id = f"Right{finger_names[i]}{segment}"
@@ -143,47 +157,52 @@ def map_and_send_to_vmc(raw_curls):
       ])
 
 def notification_handler(characteristic, data):
+  global finger_state
   try:
-    # 1. Unpack the 20 bytes into 5 floats
+    # Unpack the 20 bytes into 5 floats
     # 'f' is 4 bytes, so 'fffff' is 20 bytes
     raw_curls = struct.unpack('fffff', data)
+    finger_state = raw_curls
     
-    # 2. Print to the Terminal Console
-    # Using [int(x) for x in ...] makes it easier to read than long floats
-    #print(f"ESP32 Data: {[int(val) for val in raw_curls]}")
-    
-    # 3. Update the PyQt5 GUI
-    # Note: Depending on your setup, you might need to use a Signal 
-    # to update the UI from a background thread, but qasync often handles this.
-    data_string = ", ".join([str(int(val)) for val in raw_curls])
+    #data_string = ", ".join([str(int(val)) for val in raw_curls])
     #data_display.setText(f"Glove Data: [{data_string}]")
-    print(f"Glove Data: [{data_string}]")
+    #print(f"Glove Data: [{data_string}]")
 
-    # 4. (Existing VMC Logic)
     map_and_send_to_vmc(raw_curls)
       
   except Exception as e:
       print(f"Unpack Error: {e}")
 
 async def cleanup_ble():
-    global client
-    if client and client.is_connected:
-        print("Cleaning up BLE connection...")
-        try:
-            # Stop listening to the data stream first
-            await client.stop_notify(CHARACTERISTIC_UUID)
-            # Gracefully tell the ESP32 we are leaving
-            await client.disconnect()
-            print("Disconnected safely.")
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
+  global client
+  if client and client.is_connected:
+    print("Cleaning up BLE connection...")
+    try:
+      # Stop listening to the data stream first
+      await client.stop_notify(CHARACTERISTIC_UUID)
+      # Gracefully tell the ESP32 we are leaving
+      await client.disconnect()
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
 
 def on_connect_clicked():
   # This schedules the async task into the existing qasync loop
   asyncio.ensure_future(start_connection())
 
+def calibrate_open(event):
+  global calibration_open
+  calibration_open = list(finger_state)
+  print(f"Open Calibration: {calibration_open}")
+
+def calibrate_closed(event):
+  global calibration_closed
+  calibration_closed = list(finger_state)
+  print(f"Closed Calibration: {calibration_closed}")
+
 # EVENTS
 ui.connectButton.clicked.connect(lambda: on_connect_clicked())
+ui.calibrateClosedButton.clicked.connect(calibrate_closed)
+ui.calibrateOpenButton.clicked.connect(calibrate_open)
 
 with loop:
   loop.run_forever()
