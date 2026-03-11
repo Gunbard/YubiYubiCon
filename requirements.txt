@@ -18,6 +18,10 @@ pyqt5-sip==12.18.0
     # via
     #   -r requirements.in
     #   pyqt5
+python-osc==1.9.3
+    # via -r requirements.in
+qasync==0.28.0
+    # via -r requirements.in
 typing-extensions==4.15.0
     # via winrt-runtime
 winrt-runtime==3.2.1
