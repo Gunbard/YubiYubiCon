@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow.ui'
+# Form implementation generated from reading ui file 'MainWindow.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.11
 #
@@ -17,9 +17,13 @@ class Ui_MainWindow(object):
         MainWindow.resize(640, 480)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
-        self.pushButton = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton.setGeometry(QtCore.QRect(180, 190, 281, 81))
-        self.pushButton.setObjectName("pushButton")
+        self.connectButton = QtWidgets.QPushButton(self.centralwidget)
+        self.connectButton.setGeometry(QtCore.QRect(180, 190, 281, 81))
+        self.connectButton.setObjectName("connectButton")
+        self.statusLabel = QtWidgets.QLabel(self.centralwidget)
+        self.statusLabel.setGeometry(QtCore.QRect(180, 120, 281, 51))
+        self.statusLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.statusLabel.setObjectName("statusLabel")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 640, 22))
@@ -35,4 +39,5 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.pushButton.setText(_translate("MainWindow", "Bleh"))
+        self.connectButton.setText(_translate("MainWindow", "Connect"))
+        self.statusLabel.setText(_translate("MainWindow", "Disconnected"))
