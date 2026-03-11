@@ -1,4 +1,7 @@
 import sys
+import asyncio
+
+from bleak import BleakScanner
 from mainWindow import Ui_MainWindow
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import Qt
