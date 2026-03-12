@@ -2,6 +2,7 @@ import sys
 import asyncio
 import struct
 import math
+import time
 from bleak import BleakScanner, BleakClient
 from qasync import QEventLoop, asyncSlot
 from pythonosc import udp_client
@@ -23,14 +24,19 @@ osc_client = udp_client.SimpleUDPClient(VMC_IP, VMC_PORT)
 finger_state = [0, 0, 0, 0, 0]
 calibration_open = [0, 0, 0, 0, 0]
 calibration_closed = [1024, 1024, 1024, 1024, 1024]
+packet_count = 0
+last_packet_check = time.time()
+
+health_timer = QtCore.QTimer()
 
 def handle_close(event):
-    # Create the task in the loop
-    loop.create_task(cleanup_ble())
-    
-    # Give the task a moment to run before killing the app
-    # (Optional: if the app closes too fast, the disconnect packet might not send)
-    event.accept()
+  global loop
+  # Create the task in the loop
+  loop.create_task(cleanup_ble())
+  
+  # Give the task a moment to run before killing the app
+  # (Optional: if the app closes too fast, the disconnect packet might not send)
+  event.accept()
 
 # APP SETUP
 
@@ -44,7 +50,7 @@ asyncio.set_event_loop(loop)
 # Smoothing Factor
 # 1.0 = No smoothing (raw data, very twitchy)
 # 0.1 = Heavy smoothing (very stable, but adds slight delay)
-alpha = 0.2  
+alpha = 0.4  
 
 # This stores the previous state to calculate the next smoothed value
 smoothed_values = [0.0] * 5
@@ -71,6 +77,7 @@ async def run_ble_client(address, char_uuid, callback):
 
 async def start_connection():
   global status_label, client, osc_client
+  ui.connectButton.setEnabled(False)
   status_label.setText("Scanning for VR Glove...")
   
   # Look for a device that is specifically advertising your Service UUID
@@ -80,20 +87,28 @@ async def start_connection():
   
   if not device:
     status_label.setText("Glove not found. Is it turned on?")
+    ui.connectButton.setEnabled(True)
+    gloveMonitoringEnabled(False)
     return
 
-  status_label.setText(f"Connecting to {device.name}...")
+  status_label.setText(f"Device found! Connecting...")
   client = BleakClient(device)
   
   try:
     await client.connect()
-    status_label.setText("Connected! Syncing with VNYan...")
+    status_label.setText("Connected! Sending via VMC...")
+    ui.connectButton.setText("Disconnect")
+    ui.connectButton.setEnabled(True)
+    gloveMonitoringEnabled(True)
+
     
     # This 'notifies' our Python code whenever the ESP32 calls pCharacteristic->notify()
     await client.start_notify(CHARACTERISTIC_UUID, notification_handler)
       
   except Exception as e:
     status_label.setText(f"Connection Failed: {str(e)}")
+    ui.connectButton.setEnabled(True)
+    gloveMonitoringEnabled(False)
 
 def map_and_send_to_vmc(raw_curls):
   """
@@ -156,9 +171,30 @@ def map_and_send_to_vmc(raw_curls):
         qx, qy, qz, qw # Rotation
       ])
 
+def update_health_metrics():
+  global last_packet_check, packet_count, client
+  if not client or not client.is_connected:
+    return
+
+  current_time = time.time()
+  elapsed = current_time - last_packet_check
+  
+  # Calculate Packets Per Second (PPS)
+  pps = packet_count / elapsed
+  
+  # Reset counters for the next second
+  packet_count = 0
+  last_packet_check = current_time
+  #print(f"Packets/sec: {pps}")
+  ui.signalBar.setValue(int(pps))
+
+  # >50 = good, 30-50 = okay, <30 = low battery or signal
+
 def notification_handler(characteristic, data):
-  global finger_state
+  global finger_state, packet_count
   try:
+    packet_count += 1
+
     # Unpack the 20 bytes into 5 floats
     # 'f' is 4 bytes, so 'fffff' is 20 bytes
     raw_curls = struct.unpack('fffff', data)
@@ -186,8 +222,20 @@ async def cleanup_ble():
         print(f"Error during cleanup: {e}")
 
 def on_connect_clicked():
+  global client, loop
+  if client and client.is_connected:
+    loop.create_task(cleanup_ble())
+    ui.statusLabel.setText("Disconnected from glove.")
+    ui.connectButton.setText("Connect")
+    return
+
   # This schedules the async task into the existing qasync loop
   asyncio.ensure_future(start_connection())
+
+def gloveMonitoringEnabled(enabled):
+  ui.calibrateClosedButton.setEnabled(enabled)
+  ui.calibrateOpenButton.setEnabled(enabled)
+  ui.signalBar.setEnabled(enabled)
 
 def calibrate_open(event):
   global calibration_open
@@ -203,6 +251,11 @@ def calibrate_closed(event):
 ui.connectButton.clicked.connect(lambda: on_connect_clicked())
 ui.calibrateClosedButton.clicked.connect(calibrate_closed)
 ui.calibrateOpenButton.clicked.connect(calibrate_open)
+
+health_timer.timeout.connect(update_health_metrics)
+health_timer.start(1000)
+
+gloveMonitoringEnabled(False)
 
 with loop:
   loop.run_forever()
