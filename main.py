@@ -222,12 +222,17 @@ async def cleanup_ble():
         print(f"Error during cleanup: {e}")
 
 def on_connect_clicked():
-  global client, loop
+  global client, loop, osc_client
   if client and client.is_connected:
     loop.create_task(cleanup_ble())
     ui.statusLabel.setText("Disconnected from glove.")
     ui.connectButton.setText("Connect")
+    gloveMonitoringEnabled(False)
     return
+
+  ip = ui.vmcIpEdit.text()
+  port = ui.vmcPortEdit.text()
+  osc_client = udp_client.SimpleUDPClient(ip, int(port))
 
   # This schedules the async task into the existing qasync loop
   asyncio.ensure_future(start_connection())
@@ -235,7 +240,11 @@ def on_connect_clicked():
 def gloveMonitoringEnabled(enabled):
   ui.calibrateClosedButton.setEnabled(enabled)
   ui.calibrateOpenButton.setEnabled(enabled)
+  ui.vmcIpEdit.setEnabled(not enabled)
+  ui.vmcPortEdit.setEnabled(not enabled)
   ui.signalBar.setEnabled(enabled)
+  if (not enabled):
+    ui.signalBar.setValue(0)
 
 def calibrate_open(event):
   global calibration_open
