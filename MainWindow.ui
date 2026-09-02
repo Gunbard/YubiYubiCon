@@ -18,7 +18,7 @@
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>190</y>
+      <y>130</y>
       <width>281</width>
       <height>81</height>
      </rect>
@@ -31,7 +31,7 @@
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>120</y>
+      <y>60</y>
       <width>281</width>
       <height>51</height>
      </rect>
@@ -43,39 +43,39 @@
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
-   <widget class="QPushButton" name="calibrateClosedButton">
+   <widget class="QPushButton" name="calibrateClosedButtonR">
     <property name="geometry">
      <rect>
-      <x>180</x>
-      <y>330</y>
-      <width>111</width>
+      <x>340</x>
+      <y>380</y>
+      <width>131</width>
       <height>41</height>
      </rect>
     </property>
     <property name="text">
-     <string>Calibrate CLOSED</string>
+     <string>Calibrate Right CLOSED</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="calibrateOpenButton">
+   <widget class="QPushButton" name="calibrateOpenButtonR">
     <property name="geometry">
      <rect>
-      <x>350</x>
-      <y>330</y>
-      <width>111</width>
+      <x>470</x>
+      <y>380</y>
+      <width>131</width>
       <height>41</height>
      </rect>
     </property>
     <property name="text">
-     <string>Calibrate OPEN</string>
+     <string>Calibrate Right OPEN</string>
     </property>
    </widget>
-   <widget class="QProgressBar" name="signalBar">
+   <widget class="QProgressBar" name="signalBarRight">
     <property name="geometry">
      <rect>
-      <x>540</x>
-      <y>200</y>
+      <x>450</x>
+      <y>250</y>
       <width>31</width>
-      <height>61</height>
+      <height>81</height>
      </rect>
     </property>
     <property name="value">
@@ -103,14 +103,14 @@
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>520</x>
-      <y>270</y>
-      <width>71</width>
+      <x>410</x>
+      <y>340</y>
+      <width>111</width>
       <height>20</height>
      </rect>
     </property>
     <property name="text">
-     <string>Signal Quality</string>
+     <string>Signal Quality Right</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
@@ -172,6 +172,79 @@
     </property>
     <property name="maxLength">
      <number>255</number>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="calibrateOpenButtonL">
+    <property name="geometry">
+     <rect>
+      <x>170</x>
+      <y>380</y>
+      <width>131</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Calibrate Left OPEN</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="calibrateClosedButtonL">
+    <property name="geometry">
+     <rect>
+      <x>40</x>
+      <y>380</y>
+      <width>131</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Calibrate Left CLOSED</string>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="signalBarLeft">
+    <property name="geometry">
+     <rect>
+      <x>150</x>
+      <y>250</y>
+      <width>31</width>
+      <height>81</height>
+     </rect>
+    </property>
+    <property name="value">
+     <number>0</number>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+    <property name="textVisible">
+     <bool>false</bool>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Vertical</enum>
+    </property>
+    <property name="invertedAppearance">
+     <bool>false</bool>
+    </property>
+    <property name="textDirection">
+     <enum>QProgressBar::BottomToTop</enum>
+    </property>
+    <property name="format">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_4">
+    <property name="geometry">
+     <rect>
+      <x>110</x>
+      <y>340</y>
+      <width>111</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Signal Quality Left</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
     </property>
    </widget>
   </widget>
