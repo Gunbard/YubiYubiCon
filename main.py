@@ -110,7 +110,8 @@ async def start_connection():
   if not target_left_device and not target_right_device:
     status_label.setText("No gloves found. Are they turned on?")
     ui.connectButton.setEnabled(True)
-    gloveMonitoringEnabled(False)
+    gloveMonitoringLeftEnabled(False)
+    gloveMonitoringRightEnabled(False)
     return
 
   found_text = []
@@ -135,82 +136,25 @@ async def start_connection():
       status_label.setText(f"Connected to {len(connected_success)} Glove(s)! Streaming via VMC...")
       ui.connectButton.setText("Disconnect")
       ui.connectButton.setEnabled(True)
-      gloveMonitoringEnabled(True)
   else:
       status_label.setText("Connection Failed for all detected devices.")
       ui.connectButton.setEnabled(True)
-      gloveMonitoringEnabled(False)
+      gloveMonitoringLeftEnabled(False)
+      gloveMonitoringRightEnabled(False)
 
 async def connect_glove(client, side_name, handler):
     try:
         await client.connect()
         await client.start_notify(CHARACTERISTIC_UUID, handler)
         print(f"[{side_name} Glove] Successfully attached and notifying.")
+        if side_name == "Left":
+          gloveMonitoringLeftEnabled(True)
+        else:
+          gloveMonitoringRightEnabled(True)
         return True
     except Exception as e:
         print(f"[{side_name} Glove] Failed connection hook: {e}")
         return e
-
-# def map_and_send_to_vmc(raw_curls):
-#   """
-#   raw_curls: list/tuple of 5 floats (0-1024)
-#   Order: Thumb, Index, Middle, Ring, Little
-#   """
-#   global osc_client
-
-#   finger_names = ["Thumb", "Index", "Middle", "Ring", "Little"]
-  
-#   for i, raw_val in enumerate(raw_curls):
-#     # Apply calibration ((raw - open)/(closed - open))
-
-#     #if (calibration_closed[i] - calibration_open[i] != 0):
-#     #  raw_val = (raw_val - calibration_open[i]) / (calibration_closed[i] - calibration_open[i])
-
-#     # Normalize to 0.0 - 1.0
-#     # If 1024 is "open" and 0 is "fist", use: 1.0 - (raw_val / 1024.0)
-#     #norm = max(0.0, min(1.0, raw_val / 1024.0))
-    
-#     c_min_right = calibration_open_right[i]
-#     c_max_right = calibration_closed_right[i]
-
-#     # 1. Normalize between 0.0 and 1.0 using the calibrated range
-#     # Use a small epsilon to avoid division by zero
-#     denom_right = (c_max_right - c_min_right) if (c_max_right - c_min_right) != 0 else 1
-#     norm_right = (raw_val - c_min_right) / denom_right
-#     norm_right = max(0.0, min(1.0, norm_right)) # Clamp to 0-1 range
-
-#     # Smoothing (using the global alpha and smoothed_values)
-#     global smoothed_values_right
-#     smoothed_values_right[i] = (norm_right * alpha) + (smoothed_values_right[i] * (1 - alpha))
-
-#     # Calculate Quaternion (Rotation on X-axis)
-#     # [qx, qy, qz, qw]
-#     if i == 0:  # Thumb rotates differently
-#       angle = smoothed_values_right[i] * 2.0
-#       s = math.sin(angle / 2)
-#       c = math.cos(angle / 2)
-#       # If Z-axis made it go "down", try moving 's' to the X or Y slot.
-#       # Try this first (X-axis):
-#       qx, qy, qz, qw = s, 0.0, 0.0, c 
-#     else:
-#       angle = -(smoothed_values_right[i] * 1.6)
-#       s = math.sin(angle / 2)
-#       c = math.cos(angle / 2)
-#       # Fingers (Confirmed working Z-axis)
-#       qx, qy, qz, qw = 0.0, 0.0, s, c
-
-#     # VMC Protocol: /VMC/Ext/Bone/Pos, (str)Name, (float)px, py, pz, rx, ry, rz, rw
-#     # We assume Left Hand here.
-#     for segment in ["Proximal", "Intermediate", "Distal"]:
-      # bone_id = f"Right{finger_names[i]}{segment}"
-      
-      # # Bone positions (px, py, pz) are 0.0 because VMC handles 
-      # # rotations relative to the avatar's existing pose.
-      # osc_client.send_message("/VMC/Ext/Bone/Pos", [
-      #   bone_id, 
-      #   0.0, 0.0, 0.0, # Position
-      #   qx, qy, qz, qw # Rotation
-      # ])
 
 def map_and_send_to_vmc(raw_curls, side):
   """
@@ -367,7 +311,8 @@ def on_connect_clicked():
     loop.create_task(cleanup_ble())
     ui.statusLabel.setText("Disconnected from glove(s).")
     ui.connectButton.setText("Connect")
-    gloveMonitoringEnabled(False)
+    gloveMonitoringLeftEnabled(False)
+    gloveMonitoringRightEnabled(False)
     return
 
   ip = ui.vmcIpEdit.text()
@@ -383,16 +328,16 @@ def on_connect_clicked():
   # This schedules the async task into the existing qasync loop
   asyncio.ensure_future(start_connection())
 
-def gloveMonitoringEnabled(enabled):
+def gloveMonitoringLeftEnabled(enabled):
   ui.calibrateClosedButtonL.setEnabled(enabled)
   ui.calibrateOpenButtonL.setEnabled(enabled)
-  ui.calibrateClosedButtonR.setEnabled(enabled)
-  ui.calibrateOpenButtonR.setEnabled(enabled)
-  ui.vmcIpEdit.setEnabled(not enabled)
-  ui.vmcPortEdit.setEnabled(not enabled)
   ui.signalBarLeft.setEnabled(enabled)
   if (not enabled):
     ui.signalBarLeft.setValue(0)
+
+def gloveMonitoringRightEnabled(enabled):
+  ui.calibrateClosedButtonR.setEnabled(enabled)
+  ui.calibrateOpenButtonR.setEnabled(enabled)
   ui.signalBarRight.setEnabled(enabled)
   if (not enabled):
     ui.signalBarRight.setValue(0)
@@ -427,7 +372,8 @@ ui.calibrateOpenButtonR.clicked.connect(calibrate_open_right)
 health_timer.timeout.connect(update_health_metrics)
 health_timer.start(1000)
 
-gloveMonitoringEnabled(False)
+gloveMonitoringLeftEnabled(False)
+gloveMonitoringRightEnabled(False)
 
 with loop:
   loop.run_forever()
